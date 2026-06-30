@@ -64,6 +64,17 @@ body{background:var(--surface-0);color:var(--text-primary);min-height:100vh;padd
 .done-date{font-size:11px;color:var(--text-success)}
 .del-btn{width:32px;height:32px;border-radius:var(--radius);border:none;background:transparent;color:var(--text-muted);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
 .empty{text-align:center;color:var(--text-muted);font-size:14px;padding:3rem 0}
+
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:100;display:flex;align-items:flex-end;justify-content:center}
+.modal{background:var(--surface-2);border-radius:16px 16px 0 0;padding:1.25rem;width:100%;max-width:480px;max-height:85vh;overflow-y:auto}
+.modal h3{font-size:16px;font-weight:600;margin-bottom:1rem;color:var(--text-primary)}
+.modal input[type=text],.modal input[type=date],.modal select,.modal textarea{width:100%;height:40px;padding:0 12px;border-radius:var(--radius);border:1px solid var(--border);background:var(--surface-1);color:var(--text-primary);font-size:14px;margin-bottom:8px}
+.modal textarea{height:72px;padding:8px 12px;resize:none;line-height:1.4}
+.modal-actions{display:flex;gap:8px;margin-top:8px}
+.modal-actions button{flex:1;height:42px;border-radius:var(--radius);font-size:15px;cursor:pointer;font-weight:600}
+.btn-del{border:1px solid var(--border);background:transparent;color:var(--text-danger)}
+.btn-save2{border:1px solid var(--border-accent);background:var(--bg-accent);color:var(--text-accent)}
+.btn-close{border:1px solid var(--border);background:transparent;color:var(--text-secondary)}
 </style>
 </head>
 <body>
@@ -131,6 +142,40 @@ body{background:var(--surface-0);color:var(--text-primary);min-height:100vh;padd
   </div>
 
   <div id="listContainer"></div>
+
+<div class="modal-overlay" id="editModal" style="display:none" onclick="closeModal(event)">
+  <div class="modal">
+    <h3>태스크 수정</h3>
+    <input type="text" id="editTitle" placeholder="할 일">
+    <input type="text" id="editMemo" placeholder="메모 (선택)">
+    <input type="date" id="editDate">
+    <select id="editPrio">
+      <option value="high">🔴 높음</option>
+      <option value="mid">🟡 중간</option>
+      <option value="low">🟢 낮음</option>
+    </select>
+    <select id="editCat">
+      <option value="">분류없음</option>
+      <option value="집">🏠 집</option>
+      <option value="AI">🤖 AI</option>
+      <option value="재테크">💰 재테크</option>
+      <option value="차량">🚗 차량</option>
+      <option value="소비">🛒 소비</option>
+      <option value="본가&외가댁">🏡 본가&외가댁</option>
+      <option value="기타">기타</option>
+    </select>
+    <select id="editRepeat">
+      <option value="none">🔁 없음</option>
+      <option value="weekly">매주 반복</option>
+      <option value="monthly">매월 반복</option>
+    </select>
+    <div class="modal-actions">
+      <button class="btn-del" onclick="delFromModal()">삭제</button>
+      <button class="btn-close" onclick="closeModal()">취소</button>
+      <button class="btn-save2" onclick="saveEdit()">저장</button>
+    </div>
+  </div>
+</div>
 </div>
 
 <script>
@@ -177,7 +222,6 @@ function toggle(id){
 }
 
 function del(id){
-  if(!confirm('삭제할까요?'))return;
   todos=todos.filter(x=>x.id!==id);
   save();render();
 }
@@ -257,7 +301,7 @@ function render(){
 
     if(group!==lastGroup){html+=`<div class="section-label">${group}</div>`;lastGroup=group;}
 
-    html+=`<div class="todo-item${t.done?' done':''}" onclick="toggleMemo('${t.id}')" style="cursor:pointer">
+    html+=`<div class="todo-item${t.done?' done':''}" onclick="openEdit('${t.id}')" style="cursor:pointer">
       <button class="check-btn${t.done?' checked':''}" onclick="toggle('${t.id}')" aria-label="완료 토글"><i class="ti ti-check"></i></button>
       <div class="todo-body">
         <div class="todo-title">${esc(t.title)}</div>
@@ -282,10 +326,47 @@ function render(){
 function esc(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 
 
-function toggleMemo(id){
-  const el=document.getElementById('memo_'+id);
-  if(!el)return;
-  el.style.display=el.style.display==='none'?'block':'none';
+let editingId=null;
+
+function openEdit(id){
+  const t=todos.find(x=>x.id===id);
+  if(!t)return;
+  editingId=id;
+  document.getElementById('editTitle').value=t.title||'';
+  document.getElementById('editMemo').value=t.memo||'';
+  document.getElementById('editDate').value=t.date||'';
+  document.getElementById('editPrio').value=t.prio||'mid';
+  document.getElementById('editCat').value=t.cat||'';
+  document.getElementById('editRepeat').value=t.repeat||'none';
+  document.getElementById('editModal').style.display='flex';
+}
+
+function closeModal(e){
+  if(e&&e.target!==document.getElementById('editModal'))return;
+  document.getElementById('editModal').style.display='none';
+  editingId=null;
+}
+
+function saveEdit(){
+  const t=todos.find(x=>x.id===editingId);
+  if(!t)return;
+  t.title=document.getElementById('editTitle').value.trim()||t.title;
+  t.memo=document.getElementById('editMemo').value.trim();
+  t.date=document.getElementById('editDate').value;
+  t.prio=document.getElementById('editPrio').value;
+  t.cat=document.getElementById('editCat').value;
+  t.repeat=document.getElementById('editRepeat').value;
+  save();render();
+  document.getElementById('editModal').style.display='none';
+  editingId=null;
+}
+
+function delFromModal(){
+  if(!confirm('삭제할까요?'))return;
+  todos=todos.filter(x=>x.id!==editingId);
+  save();render();
+  document.getElementById('editModal').style.display='none';
+  editingId=null;
 }
 
 function exportData(){
